@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  SALES
+  WAREHOUSE
+  ACCOUNTS
+}
+
+enum CustomerType {
+  RETAIL
+  WHOLESALE
+  DISTRIBUTOR
+}
+
+enum CustomerStatus {
+  LEAD
+  ACTIVE
+  INACTIVE
+}
+
+enum StockMovementType {
+  IN
+  OUT
+}
+
+enum ChallanStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(SALES)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customers      Customer[]
+  followUps      FollowUp[]
+  stockMovements StockMovement[]
+  challans       Challan[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Customer {
+  id             String         @id @default(cuid())
+  customerName   String
+  mobile         String
+  email          String?
+  businessName   String
+  gstNumber      String?
+  customerType   CustomerType   @default(RETAIL)
+  address        String
+  status         CustomerStatus @default(LEAD)
+  followUpDate   DateTime?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  followUps FollowUp[]
+  challans  Challan[]
+
+  @@index([status])
+  @@index([customerType])
+  @@index([mobile])
+  @@index([createdById])
+  @@map("customers")
+}
+
+model FollowUp {
+  id           String   @id @default(cuid())
+  note         String
+  followUpDate DateTime
+  createdAt    DateTime @default(now())
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  @@index([customerId])
+  @@index([followUpDate])
+  @@map("follow_ups")
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  name              String
+  sku               String   @unique
+  category          String
+  unitPrice         Decimal  @db.Decimal(10, 2)
+  currentStock      Int      @default(0)
+  minimumStock      Int      @default(0)
+  warehouseLocation String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  stockMovements StockMovement[]
+  challanItems   ChallanItem[]
+
+  @@index([sku])
+  @@index([category])
+  @@map("products")
+}
+
+model StockMovement {
+  id        String            @id @default(cuid())
+  quantity  Int
+  type      StockMovementType
+  reason    String
+  createdAt DateTime          @default(now())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  @@index([productId])
+  @@index([type])
+  @@map("stock_movements")
+}
+
+model Challan {
+  id            String        @id @default(cuid())
+  challanNumber String        @unique
+  totalQuantity Int           @default(0)
+  status        ChallanStatus @default(DRAFT)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  items ChallanItem[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([challanNumber])
+  @@index([createdById])
+  @@map("challans")
+}
+
+model ChallanItem {
+  id          String   @id @default(cuid())
+  // Product snapshot — preserved even if product is later edited
+  productName String
+  sku         String
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  quantity    Int
+  createdAt   DateTime @default(now())
+
+  challanId String
+  challan   Challan @relation(fields: [challanId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([challanId])
+  @@index([productId])
+  @@map("challan_items")
+}
