@@ -1,0 +1,316 @@
+{
+  "clientName": "Thunder Client",
+  "collectionName": "Mini ERP + CRM API",
+  "collectionId": "mini-erp-crm-collection",
+  "dateExported": "2026-08-11",
+  "version": "1.2",
+  "folders": [
+    { "id": "folder-auth",      "name": "Authentication", "containerId": "" },
+    { "id": "folder-customers", "name": "Customers",      "containerId": "" },
+    { "id": "folder-products",  "name": "Products",       "containerId": "" },
+    { "id": "folder-inventory", "name": "Inventory",      "containerId": "" },
+    { "id": "folder-challans",  "name": "Challans",       "containerId": "" },
+    { "id": "folder-dashboard", "name": "Dashboard",      "containerId": "" }
+  ],
+  "requests": [
+
+    {
+      "id": "req-health",
+      "name": "Health Check",
+      "method": "GET",
+      "url": "{{baseUrl}}/api/health",
+      "headers": [],
+      "body": { "type": "none" },
+      "containerId": "folder-auth"
+    },
+
+    {
+      "id": "req-login",
+      "name": "Login",
+      "method": "POST",
+      "url": "{{baseUrl}}/api/auth/login",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"admin@erp.com\",\n  \"password\": \"Admin@123\"\n}"
+      },
+      "containerId": "folder-auth",
+      "notes": "Copy the token from the response and set it as the 'token' environment variable."
+    },
+
+    {
+      "id": "req-customers-list",
+      "name": "List Customers",
+      "method": "GET",
+      "url": "{{baseUrl}}/api/customers",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-customers"
+    },
+    {
+      "id": "req-customers-create",
+      "name": "Create Customer",
+      "method": "POST",
+      "url": "{{baseUrl}}/api/customers",
+      "headers": [
+        { "name": "Content-Type",  "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"customerName\": \"Rajesh Kumar\",\n  \"mobile\": \"9876543210\",\n  \"email\": \"rajesh@example.com\",\n  \"businessName\": \"Kumar Traders\",\n  \"gstNumber\": \"27AAPFU0939F1ZV\",\n  \"customerType\": \"WHOLESALE\",\n  \"address\": \"123 Market Street, Mumbai\",\n  \"status\": \"ACTIVE\"\n}"
+      },
+      "containerId": "folder-customers"
+    },
+    {
+      "id": "req-customers-get",
+      "name": "Get Customer",
+      "method": "GET",
+      "url": "{{baseUrl}}/api/customers/{{customerId}}",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-customers"
+    },
+    {
+      "id": "req-customers-update",
+      "name": "Update Customer",
+      "method": "PUT",
+      "url": "{{baseUrl}}/api/customers/{{customerId}}",
+      "headers": [
+        { "name": "Content-Type",  "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"status\": \"ACTIVE\",\n  \"notes\": \"Updated via API\"\n}"
+      },
+      "containerId": "folder-customers"
+    },
+    {
+      "id": "req-customers-delete",
+      "name": "Delete Customer",
+      "method": "DELETE",
+      "url": "{{baseUrl}}/api/customers/{{customerId}}",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-customers"
+    },
+    {
+      "id": "req-followup-create",
+      "name": "Add Follow-up",
+      "method": "POST",
+      "url": "{{baseUrl}}/api/customers/{{customerId}}/followups",
+      "headers": [
+        { "name": "Content-Type",  "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"note\": \"Called customer, interested in bulk order\",\n  \"followUpDate\": \"2026-09-01T10:00:00.000Z\"\n}"
+      },
+      "containerId": "folder-customers"
+    },
+
+    {
+      "id": "req-products-list",
+      "name": "List Products",
+      "method": "GET",
+      "url": "{{baseUrl}}/api/products",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-products"
+    },
+    {
+      "id": "req-products-create",
+      "name": "Create Product",
+      "method": "POST",
+      "url": "{{baseUrl}}/api/products",
+      "headers": [
+        { "name": "Content-Type",  "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"Industrial Bolt M10\",\n  \"sku\": \"BOLT-M10-001\",\n  \"category\": \"Hardware\",\n  \"unitPrice\": 12.50,\n  \"currentStock\": 500,\n  \"minimumStock\": 50,\n  \"warehouseLocation\": \"Rack A-12\"\n}"
+      },
+      "containerId": "folder-products"
+    },
+    {
+      "id": "req-products-get",
+      "name": "Get Product",
+      "method": "GET",
+      "url": "{{baseUrl}}/api/products/{{productId}}",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-products"
+    },
+    {
+      "id": "req-products-update",
+      "name": "Update Product",
+      "method": "PUT",
+      "url": "{{baseUrl}}/api/products/{{productId}}",
+      "headers": [
+        { "name": "Content-Type",  "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"unitPrice\": 14.00,\n  \"minimumStock\": 100,\n  \"warehouseLocation\": \"Rack B-05\"\n}"
+      },
+      "containerId": "folder-products"
+    },
+    {
+      "id": "req-products-delete",
+      "name": "Delete Product",
+      "method": "DELETE",
+      "url": "{{baseUrl}}/api/products/{{productId}}",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-products"
+    },
+
+    {
+      "id": "req-inventory-list",
+      "name": "List Stock Movements",
+      "method": "GET",
+      "url": "{{baseUrl}}/api/inventory",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-inventory"
+    },
+    {
+      "id": "req-inventory-in",
+      "name": "Stock IN",
+      "method": "POST",
+      "url": "{{baseUrl}}/api/inventory",
+      "headers": [
+        { "name": "Content-Type",  "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 100,\n  \"type\": \"IN\",\n  \"reason\": \"Purchase order received\"\n}"
+      },
+      "containerId": "folder-inventory"
+    },
+    {
+      "id": "req-inventory-out",
+      "name": "Stock OUT",
+      "method": "POST",
+      "url": "{{baseUrl}}/api/inventory",
+      "headers": [
+        { "name": "Content-Type",  "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 20,\n  \"type\": \"OUT\",\n  \"reason\": \"Manual adjustment\"\n}"
+      },
+      "containerId": "folder-inventory"
+    },
+
+    {
+      "id": "req-challans-list",
+      "name": "List Challans",
+      "method": "GET",
+      "url": "{{baseUrl}}/api/challans",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-challans"
+    },
+    {
+      "id": "req-challans-create",
+      "name": "Create Challan (Draft)",
+      "method": "POST",
+      "url": "{{baseUrl}}/api/challans",
+      "headers": [
+        { "name": "Content-Type",  "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 10,\n      \"unitPrice\": 12.50\n    }\n  ]\n}"
+      },
+      "containerId": "folder-challans"
+    },
+    {
+      "id": "req-challans-get",
+      "name": "Get Challan",
+      "method": "GET",
+      "url": "{{baseUrl}}/api/challans/{{challanId}}",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-challans"
+    },
+    {
+      "id": "req-challans-confirm",
+      "name": "Confirm Challan",
+      "method": "POST",
+      "url": "{{baseUrl}}/api/challans/{{challanId}}/confirm",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-challans",
+      "notes": "Atomically deducts stock. Returns INSUFFICIENT_STOCK error if any item exceeds available stock."
+    },
+    {
+      "id": "req-challans-cancel",
+      "name": "Cancel Challan",
+      "method": "POST",
+      "url": "{{baseUrl}}/api/challans/{{challanId}}/cancel",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-challans",
+      "notes": "Only DRAFT challans can be cancelled. No stock change occurs."
+    },
+    {
+      "id": "req-challans-update",
+      "name": "Update Challan (Draft only)",
+      "method": "PUT",
+      "url": "{{baseUrl}}/api/challans/{{challanId}}",
+      "headers": [
+        { "name": "Content-Type",  "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 5,\n      \"unitPrice\": 12.50\n    }\n  ]\n}"
+      },
+      "containerId": "folder-challans"
+    },
+
+    {
+      "id": "req-dashboard",
+      "name": "Dashboard Stats",
+      "method": "GET",
+      "url": "{{baseUrl}}/api/dashboard",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }],
+      "body": { "type": "none" },
+      "containerId": "folder-dashboard"
+    }
+
+  ],
+  "environments": [
+    {
+      "id": "env-local",
+      "name": "Local",
+      "variables": [
+        { "name": "baseUrl", "value": "http://localhost:5000" },
+        { "name": "token",      "value": "" },
+        { "name": "customerId", "value": "" },
+        { "name": "productId",  "value": "" },
+        { "name": "challanId",  "value": "" }
+      ]
+    },
+    {
+      "id": "env-production",
+      "name": "Production",
+      "variables": [
+        { "name": "baseUrl", "value": "https://your-render-backend-url.onrender.com" },
+        { "name": "token",      "value": "" },
+        { "name": "customerId", "value": "" },
+        { "name": "productId",  "value": "" },
+        { "name": "challanId",  "value": "" }
+      ]
+    }
+  ]
+}
