@@ -5,136 +5,168 @@ Developed as a **Full Stack Developer Case Study** for **Fundsroom Infotech Pvt.
 
 ---
 
-## Business Problem
+## Overview
 
 Wholesale and distribution businesses need a unified system to manage customers, track inventory, process sales orders, and monitor stock movements — all with role-based access so each team member sees only what they need.
 
+This portal provides:
+- A customer CRM with follow-up tracking
+- A product catalog with live stock levels
+- Stock IN / OUT movements with a full audit trail
+- A sales challan workflow (Draft → Confirm → Cancel) with atomic stock deduction
+- A real-time dashboard with low stock alerts
+
 ---
 
-## Core Features
+## Features
 
 | Module | Description |
 |---|---|
-| Authentication | JWT login, bcrypt password hashing, role-based access |
+| Authentication | JWT login, bcrypt password hashing |
+| Role-based Access | ADMIN / SALES / WAREHOUSE / ACCOUNTS |
+| Customer CRM | Full CRUD, follow-up notes and scheduling |
+| Products & Inventory | Product catalog, current stock tracking |
+| Stock Movements | Stock IN / OUT with reason and audit trail |
+| Sales Challan | Draft → Confirm → Cancel with atomic stock deduction |
 | Dashboard | Live stats — customers, products, challans, low stock alerts |
-| Customer CRM | Full CRUD, follow-up tracking per customer |
-| Product & Inventory | Product catalog, current stock tracking |
-| Stock Movements | Stock IN / OUT with full audit trail |
-| Sales Challan | Draft → Confirm → Cancel workflow with atomic stock deduction |
-
-### Challan Business Flow
-
-```
-LOGIN → DASHBOARD → CUSTOMER → PRODUCT → STOCK IN
-  → CREATE CHALLAN → SAVE DRAFT → CONFIRM CHALLAN
-  → STOCK REDUCED → STOCK MOVEMENT CREATED
-```
-
-Insufficient stock → structured error → no stock change (atomic transaction).
 
 ---
 
 ## Tech Stack
 
-**Frontend**
-- React 18 + TypeScript
-- React Router v7
-- Vite
-- CSS (custom, no UI library)
-
-**Backend**
-- Node.js + Express + TypeScript
-- Zod (request validation)
-- JWT (authentication)
-- bcrypt (password hashing)
-
-**Database**
-- PostgreSQL (Neon cloud)
-- Prisma ORM
-
----
-
-## Roles & Permissions
-
-| Role | Access |
+| Layer | Technology |
 |---|---|
-| `ADMIN` | Full access to all modules |
-| `SALES` | Customers, challans, dashboard |
-| `WAREHOUSE` | Products, inventory, stock movements |
-| `ACCOUNTS` | Dashboard, challan view |
+| Frontend | React 18, TypeScript, React Router v7, Vite |
+| Backend | Node.js, Express, TypeScript |
+| Validation | Zod |
+| Database | PostgreSQL (Neon cloud) |
+| ORM | Prisma |
+| Authentication | JWT + bcrypt |
+| Deployment | Vercel (frontend), Render (backend), Neon (database) |
 
 ---
 
 ## Architecture
 
 ```
-mini-erp-crm/
-├── backend/
-│   ├── prisma/
-│   │   ├── schema.prisma       # DB models
-│   │   ├── migrations/         # Prisma migrations
-│   │   └── seed.ts             # Dev seed users
-│   ├── src/
-│   │   ├── controllers/        # Route handlers
-│   │   ├── routes/             # Express routers
-│   │   ├── services/           # Business logic
-│   │   ├── middleware/         # Auth + authorization
-│   │   ├── validators/         # Zod schemas
-│   │   ├── utils/              # JWT, password helpers
-│   │   ├── config/             # Prisma client
-│   │   └── app.ts              # Express app setup
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── pages/              # Route-level components
-│   │   ├── components/         # Shared UI components
-│   │   ├── layouts/            # AppLayout with sidebar
-│   │   ├── services/           # API service functions
-│   │   ├── context/            # Auth context
-│   │   └── types/              # Shared TypeScript types
-│   └── package.json
-├── .env.example
-├── .gitignore
-└── README.md
+React (Vite + TypeScript)
+        ↓  HTTPS REST  (Authorization: Bearer <JWT>)
+Express (Node.js + TypeScript)
+        ↓  Routes → Controllers → Services
+Prisma ORM
+        ↓
+PostgreSQL (Neon)
+```
+
+See [`docs/architecture.md`](docs/architecture.md) for full detail including auth flow, inventory flow, and challan transaction logic.
+
+---
+
+## Role Permissions
+
+| Module | ADMIN | SALES | WAREHOUSE | ACCOUNTS |
+|---|---|---|---|---|
+| Dashboard | ✅ | ✅ | ✅ | ✅ |
+| Customers | ✅ | ✅ | ❌ | ❌ |
+| Products | ✅ | ❌ | ✅ | ❌ |
+| Inventory | ✅ | ❌ | ✅ | ❌ |
+| Challans | ✅ | ✅ | ❌ | ✅ (view) |
+
+---
+
+## Database Design
+
+### Main Entities
+
+| Table | Purpose |
+|---|---|
+| `users` | System users with roles |
+| `customers` | Customer CRM records |
+| `follow_ups` | Follow-up notes per customer |
+| `products` | Product catalog with stock levels |
+| `stock_movements` | Immutable audit log of every stock change |
+| `challans` | Sales delivery challans |
+| `challan_items` | Line items with product snapshot data |
+
+### Key Relationships
+
+```
+User → Customer → FollowUp
+User → Challan → ChallanItem → Product
+User → StockMovement → Product
+```
+
+`ChallanItem` stores a **product snapshot** (`productName`, `sku`, `unitPrice`) at the time of challan creation — so historical records remain accurate even if the product is later edited.
+
+---
+
+## Business Logic
+
+### Challan Workflow
+
+```
+CREATE DRAFT
+  → Items saved with product snapshot
+  → No stock change
+
+CONFIRM CHALLAN  (atomic Prisma transaction)
+  → SELECT FOR UPDATE locks product rows
+  → Validates: currentStock >= requested quantity for every item
+  → If any item fails → InsufficientStockError → entire transaction rolls back
+  → If all pass → stock deducted + StockMovement records created + status = CONFIRMED
+
+CANCEL CHALLAN
+  → Only allowed from DRAFT status
+  → No stock change (stock was never deducted for drafts)
+```
+
+### Insufficient Stock Response
+
+```json
+{
+  "success": false,
+  "code": "INSUFFICIENT_STOCK",
+  "items": [
+    { "productName": "Industrial Bolt M10", "available": 5, "requested": 20 }
+  ]
+}
 ```
 
 ---
 
-## Local Development Setup
+## Local Setup
 
 ### Prerequisites
 
 - Node.js v18+
 - npm v9+
-- PostgreSQL database (local or [Neon](https://neon.tech) cloud)
+- PostgreSQL database ([Neon](https://neon.tech) free tier works)
 
----
-
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/chirag20-sharma/MINI_ERP-CRM.git
 cd MINI_ERP-CRM
 ```
 
-### 2. Configure environment variables
+### 2. Configure environment
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-Edit `backend/.env` with your values:
+Edit `backend/.env`:
 
 ```env
 PORT=5000
 NODE_ENV=development
-DATABASE_URL="postgresql://<user>:<password>@<host>:<port>/<database>?sslmode=require"
+DATABASE_URL="postgresql://<user>:<password>@<host>/<database>?sslmode=require"
 JWT_SECRET="<minimum_32_character_random_string>"
 JWT_EXPIRES_IN="7d"
 FRONTEND_URL="http://localhost:5173"
 ```
 
-### 3. Run the backend
+### 3. Backend
 
 ```bash
 cd backend
@@ -144,10 +176,10 @@ npm run seed
 npm run dev
 ```
 
-Backend runs at: `http://localhost:5000`  
+Runs at: `http://localhost:5000`  
 Health check: `GET http://localhost:5000/api/health`
 
-### 4. Run the frontend
+### 4. Frontend
 
 ```bash
 cd frontend
@@ -155,31 +187,111 @@ npm install
 npm run dev
 ```
 
-Frontend runs at: `http://localhost:5173`
+Runs at: `http://localhost:5173`
 
 ---
 
-## Database Setup
+## Environment Variables
 
-Prisma handles all schema and migrations.
+### Backend (`backend/.env`)
 
-```bash
-# Apply migrations
-npx prisma migrate deploy
+| Variable | Description |
+|---|---|
+| `PORT` | Server port (default 5000) |
+| `NODE_ENV` | `development` or `production` |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | Secret for signing JWTs (min 32 chars) |
+| `JWT_EXPIRES_IN` | Token expiry e.g. `7d` |
+| `FRONTEND_URL` | Frontend origin for CORS in production |
 
-# Seed demo users
-npm run seed
+### Frontend
 
-# View database (optional)
-npx prisma studio
+The frontend reads the backend URL from `VITE_API_URL` when set (falls back to `http://localhost:5000` in development).
+
+---
+
+## API Documentation
+
+All routes except `/api/health` and `/api/auth/login` require:
+
 ```
+Authorization: Bearer <token>
+```
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/login` | Login, returns JWT |
+| GET | `/api/dashboard` | Dashboard stats |
+| GET / POST | `/api/customers` | List / create customers |
+| GET / PUT / DELETE | `/api/customers/:id` | Customer detail / edit / delete |
+| POST | `/api/customers/:id/followups` | Add follow-up |
+| GET / POST | `/api/products` | List / create products |
+| GET / PUT / DELETE | `/api/products/:id` | Product detail / edit / delete |
+| GET / POST | `/api/inventory` | Stock movements list / add |
+| GET / POST | `/api/challans` | List / create challans |
+| GET / PUT | `/api/challans/:id` | Challan detail / update (DRAFT only) |
+| POST | `/api/challans/:id/confirm` | Confirm + deduct stock (atomic) |
+| POST | `/api/challans/:id/cancel` | Cancel challan |
+
+### Thunder Client Collection
+
+Import [`docs/thunder-client-collection.json`](docs/thunder-client-collection.json) into VS Code Thunder Client.
+
+Two environments are included:
+- **Local** — `http://localhost:5000`
+- **Production** — update `baseUrl` to your Render URL
+
+**How to use:**
+1. Import the collection in Thunder Client
+2. Select the **Local** environment
+3. Run **Login** — copy the token from the response
+4. Set `token` variable in the environment
+5. All other requests will use it automatically
+
+---
+
+## Deployment
+
+### Database — Neon PostgreSQL
+
+1. Create a free project at [neon.tech](https://neon.tech)
+2. Copy the connection string
+3. Set it as `DATABASE_URL` in your backend environment
+4. Run migrations: `npx prisma migrate deploy`
+5. Run seed: `npm run seed`
+
+### Backend — Render
+
+1. Create a new **Web Service** at [render.com](https://render.com)
+2. Connect your GitHub repository
+3. Settings:
+   - **Root directory:** `backend`
+   - **Build command:** `npm install && npx prisma generate && npm run build`
+   - **Start command:** `npm start`
+4. Add environment variables:
+   - `DATABASE_URL`
+   - `JWT_SECRET`
+   - `JWT_EXPIRES_IN=7d`
+   - `FRONTEND_URL=https://your-vercel-app.vercel.app`
+   - `NODE_ENV=production`
+5. Deploy — health check: `GET https://your-render-url.onrender.com/api/health`
+
+### Frontend — Vercel
+
+1. Import your GitHub repository at [vercel.com](https://vercel.com)
+2. Settings:
+   - **Root directory:** `frontend`
+   - **Build command:** `npm run build`
+   - **Output directory:** `dist`
+3. Add environment variable:
+   - `VITE_API_URL=https://your-render-url.onrender.com`
+4. Deploy
 
 ---
 
 ## Demo Credentials
 
-> These are **development/demo credentials only** — for testing and recruiter review.  
-> Never use these in a production environment.
+> Development/demo only — never use in production.
 
 | Role | Email | Password |
 |---|---|---|
@@ -188,42 +300,51 @@ npx prisma studio
 | Warehouse | warehouse@erp.com | Warehouse@123 |
 | Accounts | accounts@erp.com | Accounts@123 |
 
-Passwords are hashed with **bcrypt (12 rounds)** before being stored in the database.
+Passwords are hashed with **bcrypt (12 rounds)** before storage.
 
 ---
 
-## API Overview
+## Demo Flow (for evaluators)
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/auth/login` | Login, returns JWT |
-| GET | `/api/dashboard` | Dashboard stats |
-| GET/POST | `/api/customers` | List / create customers |
-| GET/PUT/DELETE | `/api/customers/:id` | Customer detail / edit / delete |
-| GET/POST | `/api/products` | List / create products |
-| GET/PUT/DELETE | `/api/products/:id` | Product detail / edit / delete |
-| GET/POST | `/api/inventory` | Stock movements |
-| GET/POST | `/api/challans` | List / create challans |
-| GET/PUT | `/api/challans/:id` | Challan detail / update |
-| POST | `/api/challans/:id/confirm` | Confirm challan + deduct stock |
-| POST | `/api/challans/:id/cancel` | Cancel challan |
-
-All routes (except `/api/auth/login` and `/api/health`) require `Authorization: Bearer <token>`.
+```
+1.  Login as Admin (admin@erp.com)
+2.  View Dashboard — stats and low stock alerts
+3.  Create a Customer
+4.  Create a Product with stock
+5.  Add Stock IN for the product
+6.  Create a Challan (DRAFT) — verify stock unchanged
+7.  Confirm the Challan — verify stock reduced
+8.  View Stock Movement created by confirmation
+9.  Create another Challan with quantity > available stock
+10. Confirm it — observe INSUFFICIENT_STOCK error, stock unchanged
+11. Logout → Login as Sales — verify no Products/Inventory access
+12. Logout → Login as Warehouse — verify no Customers/Challans access
+```
 
 ---
 
-## Security
+## Known Limitations
 
-- Passwords hashed with bcrypt (12 rounds)
-- JWT signed with secret from environment variable
-- All routes protected with authentication middleware
-- Role-based authorization enforced server-side
-- Zod validation on all request inputs
-- Raw SQL parameterized (no injection risk)
-- CORS restricted to `FRONTEND_URL` in production
-- Request body size limited to 1mb
-- No stack traces exposed to client
-- `.env` excluded from version control
+- No invoice or PDF generation from challans (planned for future)
+- No payment tracking against challans
+- No advanced reporting or export (CSV/Excel)
+- No product image upload
+- No email notifications for follow-ups or low stock
+- No Docker setup or CI/CD pipeline
+- Single-tenant only (no multi-company support)
+
+---
+
+## Future Improvements
+
+- Invoice PDF generation from confirmed challans
+- Payment tracking (paid / partial / outstanding)
+- Advanced reports — sales by customer, stock history, revenue
+- S3 product image uploads
+- Email alerts for low stock and follow-up reminders
+- Docker + docker-compose for local development
+- GitHub Actions CI/CD pipeline
+- Audit logging for all data changes
 
 ---
 
@@ -241,5 +362,5 @@ All routes (except `/api/auth/login` and `/api/health`) require `Authorization: 
 | Part 8 | Dashboard + React UI | ✅ Complete |
 | Part 9 | Frontend API integration + UX polish | ✅ Complete |
 | Part 10 | Final testing, security audit | ✅ Complete |
-| Part 11 | Deployment documentation | 🔜 Upcoming |
+| Part 11 | Deployment documentation | ✅ Complete |
 | Part 12 | Final submission audit | 🔜 Upcoming |
