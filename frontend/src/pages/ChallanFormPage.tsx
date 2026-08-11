@@ -24,8 +24,8 @@ export default function ChallanFormPage() {
 
   useEffect(() => {
     Promise.all([
-      getCustomers({ limit: 200 }),
-      getProducts({ limit: 200 }),
+      getCustomers({ limit: 100 }),
+      getProducts({ limit: 100 }),
     ]).then(([c, p]) => {
       setCustomers(c.customers);
       setProducts(p.products);
