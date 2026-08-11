@@ -273,9 +273,9 @@ Two collection formats are provided — both contain identical requests:
    - `DATABASE_URL`
    - `JWT_SECRET`
    - `JWT_EXPIRES_IN=7d`
-   - `FRONTEND_URL=https://your-vercel-app.vercel.app`
+   - `FRONTEND_URL=https://mini-erp-crm-git-main-chirag-8084.vercel.app`
    - `NODE_ENV=production`
-5. Deploy — health check: `GET https://your-render-url.onrender.com/api/health`
+5. Deploy — health check: `GET https://mini-erp-backend-yo32.onrender.com/api/health`
 
 ### Frontend — Vercel
 
@@ -285,7 +285,7 @@ Two collection formats are provided — both contain identical requests:
    - **Build command:** `npm run build`
    - **Output directory:** `dist`
 3. Add environment variable:
-   - `VITE_API_URL=https://your-render-url.onrender.com`
+   - `VITE_API_URL=https://mini-erp-backend-yo32.onrender.com`
 4. Deploy
 
 ---

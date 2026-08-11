@@ -7,8 +7,8 @@
 | Layer | Service | URL |
 |---|---|---|
 | Database | Neon PostgreSQL | https://neon.tech |
-| Backend | Render Web Service | https://render.com |
-| Frontend | Vercel | https://vercel.com |
+| Backend | Render Web Service | https://mini-erp-backend-yo32.onrender.com |
+| Frontend | Vercel | https://mini-erp-crm-git-main-chirag-8084.vercel.app |
 
 ---
 
@@ -27,7 +27,7 @@
 DATABASE_URL=<your_neon_connection_string>
 JWT_SECRET=<min_64_char_random_string>
 JWT_EXPIRES_IN=7d
-FRONTEND_URL=<your_vercel_frontend_url>
+FRONTEND_URL=https://mini-erp-crm-git-main-chirag-8084.vercel.app
 NODE_ENV=production
 PORT=5000
 ```
@@ -40,7 +40,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ### Verify backend is live
 
 ```
-GET https://<your-render-url>.onrender.com/api/health
+GET https://mini-erp-backend-yo32.onrender.com/api/health
 ```
 
 Expected response:
@@ -62,7 +62,7 @@ Expected response:
 ### Environment Variables (set in Vercel dashboard)
 
 ```
-VITE_API_URL=https://<your-render-url>.onrender.com
+VITE_API_URL=https://mini-erp-backend-yo32.onrender.com
 ```
 
 ---
