@@ -8,12 +8,14 @@ build/
 **/dist/
 **/build/
 
-# Environment files
+# Environment files — NEVER commit real secrets
 .env
 .env.local
 .env.development
 .env.production
 **/.env
+**/.env.local
+**/.env.production
 
 # TypeScript
 *.tsbuildinfo
@@ -40,3 +42,6 @@ Thumbs.db
 **/.windsurf/
 skills-lock.json
 **/skills-lock.json
+
+# Empty nested git repos
+MINI_ERP-CRM/
