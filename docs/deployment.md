@@ -8,7 +8,7 @@
 |---|---|---|
 | Database | Neon PostgreSQL | https://neon.tech |
 | Backend | Render Web Service | https://mini-erp-backend-yo32.onrender.com |
-| Frontend | Vercel | https://mini-erp-crm-git-main-chirag-8084.vercel.app |
+| Frontend | Vercel | https://mini-erp-crm-omega-fawn.vercel.app |
 
 ---
 
@@ -27,7 +27,7 @@
 DATABASE_URL=<your_neon_connection_string>
 JWT_SECRET=<min_64_char_random_string>
 JWT_EXPIRES_IN=7d
-FRONTEND_URL=https://mini-erp-crm-git-main-chirag-8084.vercel.app
+FRONTEND_URL=https://mini-erp-crm-omega-fawn.vercel.app
 NODE_ENV=production
 PORT=5000
 ```
@@ -95,7 +95,7 @@ Set `FRONTEND_URL` in Render to your exact Vercel URL (no trailing slash).
 
 Example:
 ```
-FRONTEND_URL=https://mini-erp-crm.vercel.app
+FRONTEND_URL=https://mini-erp-crm-omega-fawn.vercel.app
 ```
 
 ---

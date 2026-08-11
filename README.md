@@ -273,7 +273,7 @@ Two collection formats are provided — both contain identical requests:
    - `DATABASE_URL`
    - `JWT_SECRET`
    - `JWT_EXPIRES_IN=7d`
-   - `FRONTEND_URL=https://mini-erp-crm-git-main-chirag-8084.vercel.app`
+   - `FRONTEND_URL=https://mini-erp-crm-omega-fawn.vercel.app`
    - `NODE_ENV=production`
 5. Deploy — health check: `GET https://mini-erp-backend-yo32.onrender.com/api/health`
 
