@@ -233,20 +233,21 @@ Authorization: Bearer <token>
 | POST | `/api/challans/:id/confirm` | Confirm + deduct stock (atomic) |
 | POST | `/api/challans/:id/cancel` | Cancel challan |
 
-### Thunder Client Collection
+### API Collections
 
-Import [`docs/thunder-client-collection.json`](docs/thunder-client-collection.json) into VS Code Thunder Client.
+Two collection formats are provided — both contain identical requests:
 
-Two environments are included:
-- **Local** — `http://localhost:5000`
-- **Production** — update `baseUrl` to your Render URL
+| Tool | File |
+|---|---|
+| Postman | [`docs/postman-collection.json`](docs/postman-collection.json) |
+| VS Code Thunder Client | [`docs/thunder-client-collection.json`](docs/thunder-client-collection.json) |
 
-**How to use:**
-1. Import the collection in Thunder Client
-2. Select the **Local** environment
+**How to use (both tools):**
+1. Import the collection file
+2. Set environment variable `baseUrl` to `http://localhost:5000` (local) or your Render URL (production)
 3. Run **Login** — copy the token from the response
-4. Set `token` variable in the environment
-5. All other requests will use it automatically
+4. Set `token` environment variable
+5. All other requests use it automatically via `{{token}}`
 
 ---
 
