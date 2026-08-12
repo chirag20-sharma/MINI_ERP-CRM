@@ -2,6 +2,16 @@
 
 A full-stack ERP and CRM operations portal built for wholesale and distribution companies.  
 Developed as a **Full Stack Developer Case Study** for **Fundsroom Infotech Pvt. Ltd.**
+---
+## 🚀 Live Demo
+
+### 🌐 [OPEN LIVE APPLICATION](https://mini-erp-crm-omega-fawn.vercel.app/)
+
+**Frontend:** https://mini-erp-crm-omega-fawn.vercel.app/
+
+**Backend API:** https://mini-erp-backend-yo32.onrender.com/
+
+**API Health:** https://mini-erp-backend-yo32.onrender.com/api/health
 
 ---
 
