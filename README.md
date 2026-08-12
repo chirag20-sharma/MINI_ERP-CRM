@@ -5,7 +5,8 @@ Developed as a **Full Stack Developer Case Study** for **Fundsroom Infotech Pvt.
 ---
 ## 🚀 Live Demo
 
-### 🌐 [OPEN LIVE APPLICATION](https://mini-erp-crm-omega-fawn.vercel.app/)
+### 🌐 [OPEN LIVE APPLICATION]
+          🚀 (https://mini-erp-crm-omega-fawn.vercel.app/)
 
 **Frontend:** https://mini-erp-crm-omega-fawn.vercel.app/
 
