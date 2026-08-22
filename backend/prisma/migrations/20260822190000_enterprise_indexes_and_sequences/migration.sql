@@ -6,9 +6,9 @@ DO $$
 DECLARE
   max_num BIGINT;
 BEGIN
-  SELECT MAX(NULLIF(regexp_replace(challan_number, '\D', '', 'g'), '')::bigint)
+  SELECT MAX(NULLIF(regexp_replace("challanNumber", '\D', '', 'g'), '')::bigint)
   INTO max_num
-  FROM challans;
+  FROM "challans";
 
   IF max_num IS NOT NULL THEN
     PERFORM setval('challan_number_seq', max_num + 1, false);
@@ -24,18 +24,17 @@ DROP INDEX IF EXISTS "challans_status_idx";
 DROP INDEX IF EXISTS "products_category_idx";
 
 -- Create new enterprise composite indexes
-CREATE INDEX "customers_status_createdAt_idx" ON "customers"("status", "createdAt");
-CREATE INDEX "customers_businessName_idx" ON "customers"("businessName");
-CREATE INDEX "customers_customerName_idx" ON "customers"("customerName");
+CREATE INDEX IF NOT EXISTS "customers_status_createdAt_idx" ON "customers"("status", "createdAt");
+CREATE INDEX IF NOT EXISTS "customers_businessName_idx" ON "customers"("businessName");
+CREATE INDEX IF NOT EXISTS "customers_customerName_idx" ON "customers"("customerName");
 
-CREATE INDEX "products_name_idx" ON "products"("name");
-CREATE INDEX "products_category_currentStock_idx" ON "products"("category", "currentStock");
+CREATE INDEX IF NOT EXISTS "products_name_idx" ON "products"("name");
+CREATE INDEX IF NOT EXISTS "products_category_currentStock_idx" ON "products"("category", "currentStock");
 
-CREATE INDEX "stock_movements_productId_createdAt_idx" ON "stock_movements"("productId", "createdAt");
-CREATE INDEX "stock_movements_type_createdAt_idx" ON "stock_movements"("type", "createdAt");
-CREATE INDEX "stock_movements_createdAt_idx" ON "stock_movements"("createdAt");
+CREATE INDEX IF NOT EXISTS "stock_movements_productId_createdAt_idx" ON "stock_movements"("productId", "createdAt");
+CREATE INDEX IF NOT EXISTS "stock_movements_type_createdAt_idx" ON "stock_movements"("type", "createdAt");
+CREATE INDEX IF NOT EXISTS "stock_movements_createdAt_idx" ON "stock_movements"("createdAt");
 
-CREATE INDEX "challans_customerId_status_idx" ON "challans"("customerId", "status");
-CREATE INDEX "challans_status_createdAt_idx" ON "challans"("status", "createdAt");
-CREATE INDEX "challans_createdAt_idx" ON "challans"("createdAt");
-
+CREATE INDEX IF NOT EXISTS "challans_customerId_status_idx" ON "challans"("customerId", "status");
+CREATE INDEX IF NOT EXISTS "challans_status_createdAt_idx" ON "challans"("status", "createdAt");
+CREATE INDEX IF NOT EXISTS "challans_createdAt_idx" ON "challans"("createdAt");
