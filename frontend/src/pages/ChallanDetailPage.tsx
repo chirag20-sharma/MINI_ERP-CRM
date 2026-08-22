@@ -111,6 +111,30 @@ export default function ChallanDetailPage() {
   const isDraft = challan.status === 'DRAFT';
   const totalValue = challan.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
+  function handleDownloadPDF() {
+    const token = localStorage.getItem('token');
+    const baseUrl = import.meta.env.VITE_API_URL ?? '';
+    fetch(`${baseUrl}/api/challans/${id}/pdf`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Failed to generate PDF');
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `challan-${challan?.challanNumber || id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch((err) => {
+        setToast({ message: err.message || 'Failed to download PDF', type: 'error' });
+      });
+  }
+
   return (
     <div className="page">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -144,19 +168,24 @@ export default function ChallanDetailPage() {
           </p>
         </div>
 
-        {canAct && isDraft && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={() => navigate(`/challans/${id}/edit`)} disabled={acting}>
-              Edit
-            </button>
-            <button className="btn btn-secondary" onClick={() => setDialog('cancel')} disabled={acting}>
-              Cancel Challan
-            </button>
-            <button className="btn btn-stock-in" onClick={() => setDialog('confirm')} disabled={acting}>
-              {acting ? 'Processing...' : 'Confirm & Deduct Stock'}
-            </button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button className="btn btn-secondary" onClick={handleDownloadPDF}>
+            📄 Download PDF
+          </button>
+          {canAct && isDraft && (
+            <>
+              <button className="btn btn-secondary" onClick={() => navigate(`/challans/${id}/edit`)} disabled={acting}>
+                Edit
+              </button>
+              <button className="btn btn-secondary" onClick={() => setDialog('cancel')} disabled={acting}>
+                Cancel Challan
+              </button>
+              <button className="btn btn-stock-in" onClick={() => setDialog('confirm')} disabled={acting}>
+                {acting ? 'Processing...' : 'Confirm & Deduct Stock'}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Insufficient stock error — shown prominently */}

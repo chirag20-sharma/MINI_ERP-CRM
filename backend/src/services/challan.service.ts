@@ -1,47 +1,44 @@
+import { Prisma } from '../generated/prisma/client';
 import prisma from '../config/prisma';
 import { CreateChallanInput, UpdateChallanInput, ChallanQuery } from '../validators/challan.validator';
+import { enqueuePDFGeneration } from '../queues/queue.service';
+import {
+  AppError,
+  ChallanNotFoundError,
+  InvalidStatusTransitionError,
+  InsufficientStockError,
+  CustomerNotFoundError,
+  ProductNotFoundError,
+} from '../utils/errors';
 
-// ─── Typed Errors ─────────────────────────────────────────────────────────────
+export {
+  AppError,
+  ChallanNotFoundError,
+  InvalidStatusTransitionError,
+  InsufficientStockError,
+};
 
-export class ChallanNotFoundError extends Error {
-  constructor() { super('Challan not found'); this.name = 'ChallanNotFoundError'; }
-}
-
-export class InvalidStatusTransitionError extends Error {
-  constructor(from: string, to: string) {
-    super(`Cannot transition challan from ${from} to ${to}`);
-    this.name = 'InvalidStatusTransitionError';
+// ─── Atomic Sequence Generator with Table Max Fallback ────────────────────────
+async function generateChallanNumber(tx: Prisma.TransactionClient): Promise<string> {
+  try {
+    const result = await tx.$queryRaw<Array<{ next_val: bigint | number | string }>>`
+      SELECT nextval('challan_number_seq') AS next_val
+    `;
+    if (result && result[0]?.next_val != null) {
+      const seq = Number(result[0].next_val);
+      return `CH-${String(seq).padStart(4, '0')}`;
+    }
+  } catch {
+    // Fallback if PostgreSQL sequence has not been applied yet
   }
-}
 
-export class InsufficientStockError extends Error {
-  constructor(
-    public productName: string,
-    public available: number,
-    public requested: number,
-  ) {
-    super('Insufficient stock');
-    this.name = 'InsufficientStockError';
-  }
-}
-
-// ─── Challan Number Generation ────────────────────────────────────────────────
-// Finds the highest existing challan number and increments it.
-// Runs inside the same transaction as challan creation so two concurrent
-// requests cannot generate the same number — the unique constraint on
-// challanNumber is the final safety net.
-async function generateChallanNumber(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
-): Promise<string> {
   const last = await tx.challan.findFirst({
     orderBy: { challanNumber: 'desc' },
     select: { challanNumber: true },
   });
 
   if (!last) return 'CH-0001';
-
-  // Extract the numeric part after "CH-"
-  const num = parseInt(last.challanNumber.replace('CH-', ''), 10);
+  const num = parseInt(last.challanNumber.replace('CH-', ''), 10) || 0;
   return `CH-${String(num + 1).padStart(4, '0')}`;
 }
 
@@ -50,11 +47,11 @@ export async function listChallans(query: ChallanQuery) {
   const { page, limit, search, status, customerId } = query;
   const skip = (page - 1) * limit;
 
-  const where = {
+  const where: Prisma.ChallanWhereInput = {
     ...(status && { status }),
     ...(customerId && { customerId }),
     ...(search && {
-      challanNumber: { contains: search, mode: 'insensitive' as const },
+      challanNumber: { contains: search, mode: 'insensitive' },
     }),
   };
 
@@ -107,99 +104,34 @@ export async function getChallanById(id: string) {
 }
 
 // ─── Create Draft Challan ─────────────────────────────────────────────────────
-// IMPORTANT: Creating a draft does NOT touch stock at all.
 export async function createChallan(data: CreateChallanInput, userId: string) {
-  return prisma.$transaction(async (tx) => {
-    // Validate customer
-    const customer = await tx.customer.findUnique({ where: { id: data.customerId } });
-    if (!customer) throw new Error('Customer not found');
+  return prisma.$transaction(
+    async (tx) => {
+      const customer = await tx.customer.findUnique({ where: { id: data.customerId } });
+      if (!customer) throw new CustomerNotFoundError();
 
-    // Validate all products exist and fetch their current data for the snapshot
-    const productIds = data.items.map((i) => i.productId);
-    const products = await tx.product.findMany({
-      where: { id: { in: productIds } },
-    });
-
-    if (products.length !== productIds.length) {
-      const foundIds = new Set(products.map((p) => p.id));
-      const missing = productIds.find((id) => !foundIds.has(id));
-      throw new Error(`Product not found: ${missing}`);
-    }
-
-    const productMap = new Map(products.map((p) => [p.id, p]));
-
-    // Generate challan number inside the transaction
-    const challanNumber = await generateChallanNumber(tx);
-
-    const totalQuantity = data.items.reduce((sum, i) => sum + i.quantity, 0);
-
-    const challan = await tx.challan.create({
-      data: {
-        challanNumber,
-        customerId: data.customerId,
-        totalQuantity,
-        status: 'DRAFT',
-        createdById: userId,
-        items: {
-          create: data.items.map((item) => {
-            const product = productMap.get(item.productId)!;
-            return {
-              productId: item.productId,
-              // ── Snapshot fields ──────────────────────────────────────────
-              // We copy name, SKU, and price from the product AS IT EXISTS NOW.
-              // If the product is edited tomorrow, this challan still shows
-              // the price that was valid when the challan was created.
-              productName: product.name,
-              sku: product.sku,
-              unitPrice: product.unitPrice,
-              quantity: item.quantity,
-            };
-          }),
-        },
-      },
-      include: {
-        customer: { select: { id: true, customerName: true, businessName: true } },
-        createdBy: { select: { id: true, name: true } },
-        items: true,
-      },
-    });
-
-    return {
-      ...challan,
-      items: challan.items.map((item) => ({ ...item, unitPrice: Number(item.unitPrice) })),
-    };
-  });
-}
-
-// ─── Update Draft Challan ─────────────────────────────────────────────────────
-// Only DRAFT challans can be edited. Replaces all items.
-export async function updateChallan(id: string, data: UpdateChallanInput) {
-  return prisma.$transaction(async (tx) => {
-    const challan = await tx.challan.findUnique({ where: { id } });
-    if (!challan) throw new ChallanNotFoundError();
-    if (challan.status !== 'DRAFT') {
-      throw new InvalidStatusTransitionError(challan.status, 'DRAFT (edit)');
-    }
-
-    // If items are being replaced, delete old ones and re-create
-    if (data.items) {
-      const productIds = data.items.map((i) => i.productId);
-      const products = await tx.product.findMany({ where: { id: { in: productIds } } });
+      const productIds = Array.from(new Set(data.items.map((i) => i.productId)));
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+      });
 
       if (products.length !== productIds.length) {
-        throw new Error('One or more products not found');
+        const foundIds = new Set(products.map((p) => p.id));
+        const missing = productIds.find((id) => !foundIds.has(id));
+        throw new ProductNotFoundError(missing);
       }
 
       const productMap = new Map(products.map((p) => [p.id, p]));
+      const challanNumber = await generateChallanNumber(tx);
       const totalQuantity = data.items.reduce((sum, i) => sum + i.quantity, 0);
 
-      await tx.challanItem.deleteMany({ where: { challanId: id } });
-
-      await tx.challan.update({
-        where: { id },
+      const challan = await tx.challan.create({
         data: {
+          challanNumber,
+          customerId: data.customerId,
           totalQuantity,
-          ...(data.customerId && { customerId: data.customerId }),
+          status: 'DRAFT',
+          createdById: userId,
           items: {
             create: data.items.map((item) => {
               const product = productMap.get(item.productId)!;
@@ -213,122 +145,187 @@ export async function updateChallan(id: string, data: UpdateChallanInput) {
             }),
           },
         },
-      });
-    } else if (data.customerId) {
-      await tx.challan.update({ where: { id }, data: { customerId: data.customerId } });
-    }
-
-    return getChallanById(id);
-  });
-}
-
-// ─── Confirm Challan ──────────────────────────────────────────────────────────
-// THE MOST CRITICAL OPERATION.
-//
-// Inside a single transaction:
-//   1. Lock every product row involved (SELECT FOR UPDATE)
-//   2. Check ALL products have sufficient stock
-//   3. If ANY product fails → throw → entire transaction rolls back
-//   4. Deduct stock for every product
-//   5. Create OUT stock movement for every product
-//   6. Mark challan CONFIRMED
-//   7. COMMIT
-//
-// If anything fails at any step, PostgreSQL rolls back everything.
-// No partial stock deductions. No orphaned movements. No inconsistent state.
-export async function confirmChallan(id: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
-    // Step 1: Load challan with items
-    const challan = await tx.challan.findUnique({
-      where: { id },
-      include: { items: true },
-    });
-
-    if (!challan) throw new ChallanNotFoundError();
-
-    // Step 2: Validate status transition — only DRAFT → CONFIRMED is allowed
-    if (challan.status !== 'DRAFT') {
-      throw new InvalidStatusTransitionError(challan.status, 'CONFIRMED');
-    }
-
-    if (challan.items.length === 0) {
-      throw new Error('Cannot confirm a challan with no items');
-    }
-
-    const productIds = challan.items.map((item) => item.productId);
-
-    // Step 3: Lock all product rows involved in this challan.
-    // SELECT FOR UPDATE acquires a row-level exclusive lock.
-    // Any other transaction trying to modify these rows will WAIT
-    // until this transaction commits or rolls back.
-    // This prevents two simultaneous confirmations from both passing
-    // the stock check on the same stale value.
-    const lockedRows = await tx.$queryRaw<Array<{ id: string; currentStock: number; name: string }>>`
-      SELECT id, "currentStock", name
-      FROM products
-      WHERE id = ANY(${productIds}::text[])
-      FOR UPDATE
-    `;
-
-    const stockMap = new Map(lockedRows.map((r) => [r.id, { stock: r.currentStock, name: r.name }]));
-
-    // Step 4: Check every item against locked stock values.
-    // We check ALL items before throwing so we can report the first failure.
-    for (const item of challan.items) {
-      const row = stockMap.get(item.productId);
-      if (!row) throw new Error(`Product not found: ${item.productId}`);
-
-      if (item.quantity > row.stock) {
-        // Throw with product name so the frontend can show a meaningful message
-        throw new InsufficientStockError(item.productName, row.stock, item.quantity);
-      }
-    }
-
-    // Step 5: All stock checks passed. Now deduct and record movements.
-    // We do this sequentially (not Promise.all) to keep the transaction clean.
-    for (const item of challan.items) {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: { currentStock: { decrement: item.quantity } },
-      });
-
-      await tx.stockMovement.create({
-        data: {
-          productId: item.productId,
-          quantity: item.quantity,
-          type: 'OUT',
-          // Reason references the challan number so the movement is traceable
-          reason: `Sales Challan ${challan.challanNumber}`,
-          createdById: userId,
+        include: {
+          customer: { select: { id: true, customerName: true, businessName: true } },
+          createdBy: { select: { id: true, name: true } },
+          items: true,
         },
       });
-    }
 
-    // Step 6: Mark challan as CONFIRMED
-    const confirmed = await tx.challan.update({
-      where: { id },
-      data: { status: 'CONFIRMED' },
-      include: {
-        customer: { select: { id: true, customerName: true, businessName: true } },
-        createdBy: { select: { id: true, name: true } },
-        items: true,
-      },
-    });
+      return {
+        ...challan,
+        items: challan.items.map((item) => ({ ...item, unitPrice: Number(item.unitPrice) })),
+      };
+    },
+    { timeout: 10000, maxWait: 5000, isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }
+  );
+}
 
-    return {
-      ...confirmed,
-      items: confirmed.items.map((item) => ({ ...item, unitPrice: Number(item.unitPrice) })),
-    };
-  });
+// ─── Update Draft Challan ─────────────────────────────────────────────────────
+export async function updateChallan(id: string, data: UpdateChallanInput) {
+  return prisma.$transaction(
+    async (tx) => {
+      const challan = await tx.challan.findUnique({ where: { id } });
+      if (!challan) throw new ChallanNotFoundError();
+      if (challan.status !== 'DRAFT') {
+        throw new InvalidStatusTransitionError(challan.status, 'DRAFT (edit)');
+      }
+
+      if (data.items) {
+        const productIds = Array.from(new Set(data.items.map((i) => i.productId)));
+        const products = await tx.product.findMany({ where: { id: { in: productIds } } });
+
+        if (products.length !== productIds.length) {
+          const foundIds = new Set(products.map((p) => p.id));
+          const missing = productIds.find((id) => !foundIds.has(id));
+          throw new ProductNotFoundError(missing);
+        }
+
+        const productMap = new Map(products.map((p) => [p.id, p]));
+        const totalQuantity = data.items.reduce((sum, i) => sum + i.quantity, 0);
+
+        await tx.challanItem.deleteMany({ where: { challanId: id } });
+
+        await tx.challan.update({
+          where: { id },
+          data: {
+            totalQuantity,
+            ...(data.customerId && { customerId: data.customerId }),
+            items: {
+              create: data.items.map((item) => {
+                const product = productMap.get(item.productId)!;
+                return {
+                  productId: item.productId,
+                  productName: product.name,
+                  sku: product.sku,
+                  unitPrice: product.unitPrice,
+                  quantity: item.quantity,
+                };
+              }),
+            },
+          },
+        });
+      } else if (data.customerId) {
+        await tx.challan.update({ where: { id }, data: { customerId: data.customerId } });
+      }
+
+      return getChallanById(id);
+    },
+    { timeout: 10000, maxWait: 5000 }
+  );
+}
+
+// ─── Confirm Challan (Deadlock-Proof, Canonical Locking & Batch Write) ────────
+export async function confirmChallan(id: string, userId: string) {
+  const result = await prisma.$transaction(
+    async (tx) => {
+      // 1. Fetch Challan
+      const challan = await tx.challan.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+
+      if (!challan) throw new ChallanNotFoundError();
+
+      if (challan.status !== 'DRAFT') {
+        throw new InvalidStatusTransitionError(challan.status, 'CONFIRMED');
+      }
+
+      if (challan.items.length === 0) {
+        throw new AppError(400, 'EMPTY_CHALLAN', 'Cannot confirm a challan with no items');
+      }
+
+      // 2. Aggregate requested quantities per product to prevent over-allocation
+      const requiredQtyMap = new Map<string, number>();
+      for (const item of challan.items) {
+        requiredQtyMap.set(
+          item.productId,
+          (requiredQtyMap.get(item.productId) || 0) + item.quantity
+        );
+      }
+
+      // 3. CANONICAL SORTING: Sort product IDs to prevent deadlock cycles across transactions
+      const sortedProductIds = Array.from(requiredQtyMap.keys()).sort();
+
+      // 4. Lock all product rows in deterministic order
+      const lockedProducts = await tx.$queryRaw<Array<{ id: string; currentStock: number; name: string }>>`
+        SELECT id, "currentStock", name
+        FROM products
+        WHERE id = ANY(${sortedProductIds}::text[])
+        ORDER BY id ASC
+        FOR UPDATE
+      `;
+
+      if (lockedProducts.length !== sortedProductIds.length) {
+        throw new AppError(404, 'PRODUCT_NOT_FOUND', 'One or more products no longer exist');
+      }
+
+      const productStockMap = new Map(lockedProducts.map((p) => [p.id, p]));
+
+      // 5. Check all stock availability
+      const stockErrors: Array<{ productName: string; available: number; requested: number }> = [];
+      for (const [productId, requestedQty] of requiredQtyMap.entries()) {
+        const product = productStockMap.get(productId)!;
+        if (product.currentStock < requestedQty) {
+          stockErrors.push({
+            productName: product.name,
+            available: product.currentStock,
+            requested: requestedQty,
+          });
+        }
+      }
+
+      if (stockErrors.length > 0) {
+        throw new InsufficientStockError(stockErrors);
+      }
+
+      // 6. Execute atomic stock decrements per product
+      for (const [productId, requestedQty] of requiredQtyMap.entries()) {
+        await tx.product.update({
+          where: { id: productId },
+          data: { currentStock: { decrement: requestedQty } },
+        });
+      }
+
+      // 7. Batch insert stock movement audit records in a single round-trip
+      await tx.stockMovement.createMany({
+        data: challan.items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          type: 'OUT' as const,
+          reason: `Sales Challan ${challan.challanNumber}`,
+          createdById: userId,
+        })),
+      });
+
+      // 8. Mark challan as CONFIRMED
+      const confirmed = await tx.challan.update({
+        where: { id },
+        data: { status: 'CONFIRMED' },
+        include: {
+          customer: { select: { id: true, customerName: true, businessName: true } },
+          createdBy: { select: { id: true, name: true } },
+          items: true,
+        },
+      });
+
+      return {
+        ...confirmed,
+        items: confirmed.items.map((item) => ({ ...item, unitPrice: Number(item.unitPrice) })),
+      };
+    },
+    { timeout: 15000, maxWait: 5000, isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }
+  );
+
+  // Background Async Tasks (non-blocking post-commit)
+  enqueuePDFGeneration(id).catch((err) =>
+    console.error(`[Queue] Failed to enqueue PDF generation for challan ${id}:`, err)
+  );
+
+  return result;
 }
 
 // ─── Cancel Challan ───────────────────────────────────────────────────────────
-// DRAFT → CANCELLED: safe, no stock was ever touched.
-// CONFIRMED → CANCELLED: NOT allowed via this API.
-//   A confirmed challan has already reduced stock and created audit movements.
-//   Reversing it requires compensating stock-IN movements, which is a separate
-//   business operation outside the scope of this module.
-//   We explicitly block it to prevent silent inventory inconsistency.
 export async function cancelChallan(id: string) {
   const challan = await prisma.challan.findUnique({ where: { id } });
   if (!challan) throw new ChallanNotFoundError();
@@ -336,7 +333,7 @@ export async function cancelChallan(id: string) {
   if (challan.status === 'CONFIRMED') {
     throw new InvalidStatusTransitionError(
       'CONFIRMED',
-      'CANCELLED — confirmed challans cannot be cancelled directly; create a stock-IN reversal instead',
+      'CANCELLED (Confirmed challans require a formal stock-IN return entry)'
     );
   }
 

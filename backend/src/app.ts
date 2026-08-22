@@ -1,5 +1,7 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import healthRouter from './routes/health.routes';
 import authRouter from './routes/auth.routes';
 import customerRouter from './routes/customer.routes';
@@ -7,16 +9,33 @@ import productRouter from './routes/product.routes';
 import inventoryRouter from './routes/inventory.routes';
 import challanRouter from './routes/challan.routes';
 import dashboardRouter from './routes/dashboard.routes';
+import { apiLimiter } from './middleware/rateLimiter';
+import { AppError } from './utils/errors';
 
 const app: Application = express();
 
-// Middleware
+// Security HTTP Headers
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
+
+// Cookie Parser
+app.use(cookieParser());
+
+// Middleware & CORS
 const allowedOrigin = process.env['FRONTEND_URL'] ?? 'http://localhost:5173';
-app.use(cors({
-  origin: process.env['NODE_ENV'] === 'production' ? allowedOrigin : true,
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: process.env['NODE_ENV'] === 'production' ? allowedOrigin : true,
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '1mb' }));
+
+// General API Rate Limiting
+app.use('/api', apiLimiter);
 
 // Routes
 app.use('/api', healthRouter);
@@ -34,6 +53,16 @@ app.use((_req: Request, res: Response) => {
 
 // Global error handler
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof AppError) {
+    res.status(err.statusCode).json({
+      success: false,
+      code: err.code,
+      message: err.message,
+      ...(err.details ? { details: err.details } : {}),
+    });
+    return;
+  }
+
   console.error(err.stack);
   res.status(500).json({ success: false, message: 'Internal server error' });
 });

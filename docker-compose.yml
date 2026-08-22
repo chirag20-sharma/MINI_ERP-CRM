@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # ── PostgreSQL Database ───────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: mini-erp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: erp_admin
+      POSTGRES_PASSWORD: erp_secure_password
+      POSTGRES_DB: mini_erp_crm
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U erp_admin -d mini_erp_crm']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (Cache & Queue Broker) ─────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: mini-erp-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend API & Worker ──────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mini-erp-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: 'postgresql://erp_admin:erp_secure_password@postgres:5432/mini_erp_crm?schema=public'
+      REDIS_URL: 'redis://redis:6379'
+      JWT_SECRET: 'super_secret_enterprise_jwt_key_min_32_characters'
+      JWT_REFRESH_SECRET: 'super_secret_enterprise_refresh_jwt_key_32'
+      JWT_ACCESS_EXPIRES_IN: '15m'
+      JWT_REFRESH_EXPIRES_IN: '7d'
+      FRONTEND_URL: 'http://localhost:3000'
+    ports:
+      - '5000:5000'
+
+  # ── Frontend Web UI ───────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: 'http://localhost:5000'
+    container_name: mini-erp-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '3000:80'
+
+volumes:
+  postgres_data:
+  redis_data:
+

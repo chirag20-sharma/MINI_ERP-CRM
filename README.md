@@ -2,17 +2,17 @@
 
 A full-stack ERP and CRM operations portal built for wholesale and distribution companies.  
 Developed as a **Full Stack Developer Case Study** for **Fundsroom Infotech Pvt. Ltd.**
+
 ---
+
 ## 🚀 Live Demo
 
 ### 🌐 [OPEN LIVE APPLICATION]
-          🚀 (https://mini-erp-crm-omega-fawn.vercel.app/)
+🚀 (https://mini-erp-crm-omega-fawn.vercel.app/)
 
-**Frontend:** https://mini-erp-crm-omega-fawn.vercel.app/
-
-**Backend API:** https://mini-erp-backend-yo32.onrender.com/
-
-**API Health:** https://mini-erp-backend-yo32.onrender.com/api/health
+**Frontend:** https://mini-erp-crm-omega-fawn.vercel.app/  
+**Backend API:** https://mini-erp-backend-yo32.onrender.com/  
+**API Health:** https://mini-erp-backend-yo32.onrender.com/api/health  
 
 ---
 
@@ -21,11 +21,13 @@ Developed as a **Full Stack Developer Case Study** for **Fundsroom Infotech Pvt.
 Wholesale and distribution businesses need a unified system to manage customers, track inventory, process sales orders, and monitor stock movements — all with role-based access so each team member sees only what they need.
 
 This portal provides:
-- A customer CRM with follow-up tracking
-- A product catalog with live stock levels
-- Stock IN / OUT movements with a full audit trail
-- A sales challan workflow (Draft → Confirm → Cancel) with atomic stock deduction
-- A real-time dashboard with low stock alerts
+- **Customer CRM** with follow-up tracking and lead status management
+- **Product Catalog** with real-time stock levels and minimum stock threshold indicators
+- **Stock IN / OUT Movements** with batch audit trails and non-negative stock enforcement
+- **Sales Challan Workflow** (Draft → Confirm → Cancel) with deadlock-proof atomic stock deduction
+- **Delivery Challan & Invoice PDF Generation** on-demand and asynchronously via background workers
+- **Enterprise Security** with Helmet HTTP headers, IP rate limiting, and rotating refresh tokens
+- **Real-Time Dashboard** with low stock alerts and business metrics
 
 ---
 
@@ -33,13 +35,15 @@ This portal provides:
 
 | Module | Description |
 |---|---|
-| Authentication | JWT login, bcrypt password hashing |
-| Role-based Access | ADMIN / SALES / WAREHOUSE / ACCOUNTS |
-| Customer CRM | Full CRUD, follow-up notes and scheduling |
-| Products & Inventory | Product catalog, current stock tracking |
-| Stock Movements | Stock IN / OUT with reason and audit trail |
-| Sales Challan | Draft → Confirm → Cancel with atomic stock deduction |
-| Dashboard | Live stats — customers, products, challans, low stock alerts |
+| **Authentication & Security** | Short-lived JWTs (15m) + rotating HttpOnly Refresh Tokens, bcrypt hashing, Helmet headers, IP rate limiting |
+| **Role-based Access** | `ADMIN` / `SALES` / `WAREHOUSE` / `ACCOUNTS` role separation |
+| **Customer CRM** | Full CRUD, customer categorization (Retail, Wholesale, Distributor), follow-up scheduling |
+| **Products & Inventory** | Product catalog, SKU tracking, category management, minimum stock alerts |
+| **Stock Movements** | Stock IN / OUT with reason tracking, row-level locking, and immutable audit logs |
+| **Sales Challans** | Draft → Confirm → Cancel workflow with deadlock-proof atomic inventory deduction |
+| **PDF Invoices** | Professional PDF delivery challan / invoice generator with customer details and line-item tables |
+| **Worker Queue** | Asynchronous job processing (BullMQ + Redis) for PDF generation and low-stock alerts |
+| **Dashboard** | Live analytics — active customers, stock value, challan status, low-stock warnings |
 
 ---
 
@@ -47,29 +51,29 @@ This portal provides:
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18, TypeScript, React Router v7, Vite |
-| Backend | Node.js, Express, TypeScript |
-| Validation | Zod |
-| Database | PostgreSQL (Neon cloud) |
-| ORM | Prisma |
-| Authentication | JWT + bcrypt |
-| Deployment | Vercel (frontend), Render (backend), Neon (database) |
+| **Frontend** | React 18, TypeScript, React Router v7, Vite (Route-level Code Splitting & Vendor Chunks) |
+| **Backend** | Node.js, Express, TypeScript |
+| **Database** | PostgreSQL (Neon cloud / Local Docker) |
+| **ORM** | Prisma (Composite Performance Indexes & PostgreSQL Sequences) |
+| **Async Queues & Cache** | BullMQ & Redis (with resilient in-process fallback) |
+| **Document Generation** | PDFKit |
+| **Security & Validation** | Zod, Helmet, Express-Rate-Limit, Cookie-Parser, Bcrypt, JWT |
+| **DevOps & Containers** | Docker (Multi-stage Alpine), Docker Compose, GitHub Actions CI/CD |
+| **Production Hosting** | Vercel (Frontend), Render (Backend), Neon (PostgreSQL) |
 
 ---
 
 ## Architecture
 
 ```
-React (Vite + TypeScript)
-        ↓  HTTPS REST  (Authorization: Bearer <JWT>)
-Express (Node.js + TypeScript)
-        ↓  Routes → Controllers → Services
-Prisma ORM
-        ↓
-PostgreSQL (Neon)
+React 18 SPA (Vite + Route Lazy Loading)
+        ↓  HTTPS REST (Authorization: Bearer <JWT> + HttpOnly Refresh Cookie)
+Express API Cluster (Node.js + TypeScript + Helmet + Rate Limiting)
+        │
+        ├──► Prisma ORM ──► PostgreSQL (Composite Indexes, Row-Locks, Sequences)
+        │
+        └──► BullMQ ──► Redis (Worker Queue for PDF Invoices & Low-Stock Alerts)
 ```
-
-See [`docs/architecture.md`](docs/architecture.md) for full detail including auth flow, inventory flow, and challan transaction logic.
 
 ---
 
@@ -77,11 +81,12 @@ See [`docs/architecture.md`](docs/architecture.md) for full detail including aut
 
 | Module | ADMIN | SALES | WAREHOUSE | ACCOUNTS |
 |---|---|---|---|---|
-| Dashboard | ✅ | ✅ | ✅ | ✅ |
-| Customers | ✅ | ✅ | ❌ | ❌ |
-| Products | ✅ | ❌ | ✅ | ❌ |
-| Inventory | ✅ | ❌ | ✅ | ❌ |
-| Challans | ✅ | ✅ | ❌ | ✅ (view) |
+| **Dashboard** | ✅ | ✅ | ✅ | ✅ |
+| **Customers** | ✅ | ✅ | ❌ | ❌ |
+| **Products** | ✅ | ❌ | ✅ | ❌ |
+| **Inventory** | ✅ | ❌ | ✅ | ❌ |
+| **Challans** | ✅ | ✅ | ❌ | ✅ (view) |
+| **Download PDF** | ✅ | ✅ | ❌ | ✅ |
 
 ---
 
@@ -91,114 +96,90 @@ See [`docs/architecture.md`](docs/architecture.md) for full detail including aut
 
 | Table | Purpose |
 |---|---|
-| `users` | System users with roles |
-| `customers` | Customer CRM records |
-| `follow_ups` | Follow-up notes per customer |
-| `products` | Product catalog with stock levels |
-| `stock_movements` | Immutable audit log of every stock change |
-| `challans` | Sales delivery challans |
-| `challan_items` | Line items with product snapshot data |
-
-### Key Relationships
-
-```
-User → Customer → FollowUp
-User → Challan → ChallanItem → Product
-User → StockMovement → Product
-```
-
-`ChallanItem` stores a **product snapshot** (`productName`, `sku`, `unitPrice`) at the time of challan creation — so historical records remain accurate even if the product is later edited.
+| `users` | System users with roles (`ADMIN`, `SALES`, `WAREHOUSE`, `ACCOUNTS`) |
+| `customers` | Customer CRM records with composite status indexes |
+| `follow_ups` | Follow-up notes and dates per customer |
+| `products` | Product catalog with live stock, minimum threshold, and category indexes |
+| `stock_movements` | Immutable audit log of every stock change with composite date indexes |
+| `challans` | Sales delivery challans with sequence-backed numbering and status indexes |
+| `challan_items` | Line items with frozen product snapshot data (`productName`, `sku`, `unitPrice`) |
 
 ---
 
-## Business Logic
+## API Documentation
 
-### Challan Workflow
-
+All routes except `/api/health`, `/api/auth/login`, and `/api/auth/refresh` require:
 ```
-CREATE DRAFT
-  → Items saved with product snapshot
-  → No stock change
-
-CONFIRM CHALLAN  (atomic Prisma transaction)
-  → SELECT FOR UPDATE locks product rows
-  → Validates: currentStock >= requested quantity for every item
-  → If any item fails → InsufficientStockError → entire transaction rolls back
-  → If all pass → stock deducted + StockMovement records created + status = CONFIRMED
-
-CANCEL CHALLAN
-  → Only allowed from DRAFT status
-  → No stock change (stock was never deducted for drafts)
+Authorization: Bearer <token>
 ```
 
-### Insufficient Stock Response
-
-```json
-{
-  "success": false,
-  "code": "INSUFFICIENT_STOCK",
-  "items": [
-    { "productName": "Industrial Bolt M10", "available": 5, "requested": 20 }
-  ]
-}
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/auth/login` | Login with rate limiting, returns access token + HttpOnly cookie |
+| `POST` | `/api/auth/refresh` | Silent token refresh endpoint |
+| `POST` | `/api/auth/logout` | Clears refresh token cookie |
+| `GET` | `/api/auth/me` | Fetch authenticated user profile |
+| `GET` | `/api/dashboard` | Dashboard metrics and low-stock alerts |
+| `GET` / `POST` | `/api/customers` | List / create customer records |
+| `GET` / `PUT` / `DELETE` | `/api/customers/:id` | Customer details / update / delete |
+| `POST` | `/api/customers/:id/followups` | Add customer follow-up |
+| `GET` / `POST` | `/api/products` | List / create products |
+| `GET` / `PUT` / `DELETE` | `/api/products/:id` | Product details / update / delete |
+| `GET` / `POST` | `/api/inventory` | Stock movement history / Stock IN / Stock OUT |
+| `GET` / `POST` | `/api/challans` | List / create sales challans |
+| `GET` / `PUT` | `/api/challans/:id` | Challan detail / update (DRAFT only) |
+| `POST` | `/api/challans/:id/confirm` | Atomic confirm + deadlock-proof stock deduction |
+| `POST` | `/api/challans/:id/cancel` | Cancel challan (DRAFT only) |
+| `GET` | `/api/challans/:id/pdf` | Generate and download delivery challan / invoice PDF |
 
 ---
 
-## Local Setup
+## Local Setup & Development
 
-### Prerequisites
+### Option A: Quickstart with Docker Compose (Recommended)
 
-- Node.js v18+
-- npm v9+
-- PostgreSQL database ([Neon](https://neon.tech) free tier works)
+Run the entire stack (PostgreSQL, Redis, Backend, Frontend) with a single command:
 
-### 1. Clone
+```bash
+docker compose up -d
+```
 
+- **Frontend:** `http://localhost:3000`
+- **Backend API:** `http://localhost:5000`
+- **PostgreSQL:** `localhost:5432`
+- **Redis:** `localhost:6379`
+
+---
+
+### Option B: Manual Local Setup
+
+#### Prerequisites
+- Node.js v20+
+- PostgreSQL database
+- (Optional) Redis server
+
+#### 1. Clone
 ```bash
 git clone https://github.com/chirag20-sharma/MINI_ERP-CRM.git
 cd MINI_ERP-CRM
 ```
 
-### 2. Configure environment
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Edit `backend/.env`:
-
-```env
-PORT=5000
-NODE_ENV=development
-DATABASE_URL="postgresql://<user>:<password>@<host>/<database>?sslmode=require"
-JWT_SECRET="<minimum_32_character_random_string>"
-JWT_EXPIRES_IN="7d"
-FRONTEND_URL="http://localhost:5173"
-```
-
-### 3. Backend
-
+#### 2. Backend Setup
 ```bash
 cd backend
+cp .env.example .env
 npm install
 npx prisma migrate deploy
 npm run seed
 npm run dev
 ```
 
-Runs at: `http://localhost:5000`  
-Health check: `GET http://localhost:5000/api/health`
-
-### 4. Frontend
-
+#### 3. Frontend Setup
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-
-Runs at: `http://localhost:5173`
 
 ---
 
@@ -211,93 +192,12 @@ Runs at: `http://localhost:5173`
 | `PORT` | Server port (default 5000) |
 | `NODE_ENV` | `development` or `production` |
 | `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET` | Secret for signing JWTs (min 32 chars) |
-| `JWT_EXPIRES_IN` | Token expiry e.g. `7d` |
-| `FRONTEND_URL` | Frontend origin for CORS in production |
-
-### Frontend
-
-The frontend reads the backend URL from `VITE_API_URL` when set (falls back to `http://localhost:5000` in development).
-
----
-
-## API Documentation
-
-All routes except `/api/health` and `/api/auth/login` require:
-
-```
-Authorization: Bearer <token>
-```
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/auth/login` | Login, returns JWT |
-| GET | `/api/dashboard` | Dashboard stats |
-| GET / POST | `/api/customers` | List / create customers |
-| GET / PUT / DELETE | `/api/customers/:id` | Customer detail / edit / delete |
-| POST | `/api/customers/:id/followups` | Add follow-up |
-| GET / POST | `/api/products` | List / create products |
-| GET / PUT / DELETE | `/api/products/:id` | Product detail / edit / delete |
-| GET / POST | `/api/inventory` | Stock movements list / add |
-| GET / POST | `/api/challans` | List / create challans |
-| GET / PUT | `/api/challans/:id` | Challan detail / update (DRAFT only) |
-| POST | `/api/challans/:id/confirm` | Confirm + deduct stock (atomic) |
-| POST | `/api/challans/:id/cancel` | Cancel challan |
-
-### API Collections
-
-Two collection formats are provided — both contain identical requests:
-
-| Tool | File |
-|---|---|
-| Postman | [`docs/postman-collection.json`](docs/postman-collection.json) |
-| VS Code Thunder Client | [`docs/thunder-client-collection.json`](docs/thunder-client-collection.json) |
-
-**How to use (both tools):**
-1. Import the collection file
-2. Set environment variable `baseUrl` to `http://localhost:5000` (local) or your Render URL (production)
-3. Run **Login** — copy the token from the response
-4. Set `token` environment variable
-5. All other requests use it automatically via `{{token}}`
-
----
-
-## Deployment
-
-### Database — Neon PostgreSQL
-
-1. Create a free project at [neon.tech](https://neon.tech)
-2. Copy the connection string
-3. Set it as `DATABASE_URL` in your backend environment
-4. Run migrations: `npx prisma migrate deploy`
-5. Run seed: `npm run seed`
-
-### Backend — Render
-
-1. Create a new **Web Service** at [render.com](https://render.com)
-2. Connect your GitHub repository
-3. Settings:
-   - **Root directory:** `backend`
-   - **Build command:** `npm install && npx prisma generate && npm run build`
-   - **Start command:** `npm start`
-4. Add environment variables:
-   - `DATABASE_URL`
-   - `JWT_SECRET`
-   - `JWT_EXPIRES_IN=7d`
-   - `FRONTEND_URL=https://mini-erp-crm-omega-fawn.vercel.app`
-   - `NODE_ENV=production`
-5. Deploy — health check: `GET https://mini-erp-backend-yo32.onrender.com/api/health`
-
-### Frontend — Vercel
-
-1. Import your GitHub repository at [vercel.com](https://vercel.com)
-2. Settings:
-   - **Root directory:** `frontend`
-   - **Build command:** `npm run build`
-   - **Output directory:** `dist`
-3. Add environment variable:
-   - `VITE_API_URL=https://mini-erp-backend-yo32.onrender.com`
-4. Deploy
+| `JWT_SECRET` | Secret key for signing Access Tokens (min 32 chars) |
+| `JWT_REFRESH_SECRET` | Secret key for signing Refresh Tokens (min 32 chars) |
+| `JWT_ACCESS_EXPIRES_IN` | Access token lifespan (e.g. `15m`) |
+| `JWT_REFRESH_EXPIRES_IN` | Refresh token lifespan (e.g. `7d`) |
+| `FRONTEND_URL` | Allowed frontend origin for CORS |
+| `REDIS_URL` | Optional Redis connection string for BullMQ workers |
 
 ---
 
@@ -307,72 +207,16 @@ Two collection formats are provided — both contain identical requests:
 
 | Role | Email | Password |
 |---|---|---|
-| Admin | admin@erp.com | Admin@123 |
-| Sales | sales@erp.com | Sales@123 |
-| Warehouse | warehouse@erp.com | Warehouse@123 |
-| Accounts | accounts@erp.com | Accounts@123 |
-
-Passwords are hashed with **bcrypt (12 rounds)** before storage.
+| **Admin** | `admin@erp.com` | `Admin@123` |
+| **Sales** | `sales@erp.com` | `Sales@123` |
+| **Warehouse** | `warehouse@erp.com` | `Warehouse@123` |
+| **Accounts** | `accounts@erp.com` | `Accounts@123` |
 
 ---
 
-## Demo Flow (for evaluators)
+## CI/CD Pipeline
 
-```
-1.  Login as Admin (admin@erp.com)
-2.  View Dashboard — stats and low stock alerts
-3.  Create a Customer
-4.  Create a Product with stock
-5.  Add Stock IN for the product
-6.  Create a Challan (DRAFT) — verify stock unchanged
-7.  Confirm the Challan — verify stock reduced
-8.  View Stock Movement created by confirmation
-9.  Create another Challan with quantity > available stock
-10. Confirm it — observe INSUFFICIENT_STOCK error, stock unchanged
-11. Logout → Login as Sales — verify no Products/Inventory access
-12. Logout → Login as Warehouse — verify no Customers/Challans access
-```
-
----
-
-## Known Limitations
-
-- No invoice or PDF generation from challans (planned for future)
-- No payment tracking against challans
-- No advanced reporting or export (CSV/Excel)
-- No product image upload
-- No email notifications for follow-ups or low stock
-- No Docker setup or CI/CD pipeline
-- Single-tenant only (no multi-company support)
-
----
-
-## Future Improvements
-
-- Invoice PDF generation from confirmed challans
-- Payment tracking (paid / partial / outstanding)
-- Advanced reports — sales by customer, stock history, revenue
-- S3 product image uploads
-- Email alerts for low stock and follow-up reminders
-- Docker + docker-compose for local development
-- GitHub Actions CI/CD pipeline
-- Audit logging for all data changes
-
----
-
-## Current Status
-
-| Part | Description | Status |
-|---|---|---|
-| Part 1 | Project setup, health check | ✅ Complete |
-| Part 2 | Database schema + Prisma | ✅ Complete |
-| Part 3 | Authentication + JWT | ✅ Complete |
-| Part 4 | Role-based authorization | ✅ Complete |
-| Part 5 | Customer CRM module | ✅ Complete |
-| Part 6 | Product + inventory module | ✅ Complete |
-| Part 7 | Stock movements + challan workflow | ✅ Complete |
-| Part 8 | Dashboard + React UI | ✅ Complete |
-| Part 9 | Frontend API integration + UX polish | ✅ Complete |
-| Part 10 | Final testing, security audit | ✅ Complete |
-| Part 11 | Deployment documentation | ✅ Complete |
-| Part 12 | Final submission audit | 🔜 Upcoming |
+Automated continuous integration is configured via **GitHub Actions** (`.github/workflows/ci.yml`):
+- Validates Prisma schema and generates client
+- Strict TypeScript compile check on backend (`tsc`)
+- Vite production chunk bundling and type verification on frontend

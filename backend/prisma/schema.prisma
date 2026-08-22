@@ -80,9 +80,11 @@ model Customer {
   followUps FollowUp[]
   challans  Challan[]
 
-  @@index([status])
+  @@index([status, createdAt])
   @@index([customerType])
   @@index([mobile])
+  @@index([businessName])
+  @@index([customerName])
   @@index([createdById])
   @@map("customers")
 }
@@ -120,7 +122,8 @@ model Product {
   challanItems   ChallanItem[]
 
   @@index([sku])
-  @@index([category])
+  @@index([name])
+  @@index([category, currentStock])
   @@map("products")
 }
 
@@ -137,8 +140,9 @@ model StockMovement {
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
 
-  @@index([productId])
-  @@index([type])
+  @@index([productId, createdAt])
+  @@index([type, createdAt])
+  @@index([createdAt])
   @@map("stock_movements")
 }
 
@@ -158,9 +162,10 @@ model Challan {
 
   items ChallanItem[]
 
-  @@index([customerId])
-  @@index([status])
+  @@index([customerId, status])
+  @@index([status, createdAt])
   @@index([challanNumber])
+  @@index([createdAt])
   @@index([createdById])
   @@map("challans")
 }

@@ -8,6 +8,7 @@ import {
   updateChallan,
   confirmChallan,
   cancelChallan,
+  downloadChallanPDF,
 } from '../controllers/challan.controller';
 
 const challanRouter = Router();
@@ -16,6 +17,7 @@ challanRouter.use(authenticate);
 
 // Read — ADMIN, SALES, ACCOUNTS
 challanRouter.get('/', authorize('ADMIN', 'SALES', 'ACCOUNTS'), getChallans);
+challanRouter.get('/:id/pdf', authorize('ADMIN', 'SALES', 'ACCOUNTS'), downloadChallanPDF);
 challanRouter.get('/:id', authorize('ADMIN', 'SALES', 'ACCOUNTS'), getChallan);
 
 // Create / Edit draft — ADMIN, SALES

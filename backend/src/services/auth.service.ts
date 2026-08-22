@@ -1,27 +1,32 @@
 import prisma from '../config/prisma';
 import { comparePassword } from '../utils/password';
-import { signToken } from '../utils/jwt';
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { LoginInput } from '../validators/auth.validator';
+import { AppError } from '../utils/errors';
 
 export async function loginUser(input: LoginInput) {
   const user = await prisma.user.findUnique({
     where: { email: input.email },
   });
 
-  // Use same error for both "not found" and "wrong password" — prevents user enumeration
+  // Use uniform error to prevent user enumeration
   if (!user) {
-    throw new Error('Invalid email or password');
+    throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
   }
 
   const passwordMatch = await comparePassword(input.password, user.password);
   if (!passwordMatch) {
-    throw new Error('Invalid email or password');
+    throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
   }
 
-  const token = signToken({ userId: user.id, role: user.role });
+  const payload = { userId: user.id, role: user.role };
+  const accessToken = signAccessToken(payload);
+  const refreshToken = signRefreshToken(payload);
 
   return {
-    token,
+    token: accessToken, // Maintained for legacy frontend compatibility
+    accessToken,
+    refreshToken,
     user: {
       id: user.id,
       name: user.name,
@@ -30,6 +35,34 @@ export async function loginUser(input: LoginInput) {
       createdAt: user.createdAt,
     },
   };
+}
+
+export async function refreshUserToken(token: string) {
+  try {
+    const payload = verifyRefreshToken(token);
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, role: true, email: true, name: true },
+    });
+
+    if (!user) {
+      throw new AppError(401, 'USER_NOT_FOUND', 'User belonging to token no longer exists');
+    }
+
+    const newPayload = { userId: user.id, role: user.role };
+    const accessToken = signAccessToken(newPayload);
+    const refreshToken = signRefreshToken(newPayload);
+
+    return {
+      token: accessToken,
+      accessToken,
+      refreshToken,
+      user,
+    };
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError(401, 'INVALID_REFRESH_TOKEN', 'Invalid or expired refresh token');
+  }
 }
 
 export async function getMe(userId: string) {
@@ -46,7 +79,7 @@ export async function getMe(userId: string) {
   });
 
   if (!user) {
-    throw new Error('User not found');
+    throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
   }
 
   return user;
