@@ -8,9 +8,9 @@ export async function generateChallanPDF(challanId: string): Promise<Buffer> {
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
     const chunks: Buffer[] = [];
 
-    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+    doc.on('data', (chunk) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', (err: Error) => reject(err));
+    doc.on('error', (err) => reject(err));
 
     // ─── Header ─────────────────────────────────────────────────────────────
     doc
